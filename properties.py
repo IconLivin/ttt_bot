@@ -3,7 +3,7 @@ import json
 from enum import Enum, auto
 from telebot import types
 
-API_KEY = '2137585543:AAE6Nb13TZ7nLIKbJm1k6-oPk4fn73XgB7Q'
+API_KEY = ''
 bot = telebot.TeleBot(token=API_KEY)
 
 crossIcon = u"\u274C"
