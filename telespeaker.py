@@ -1,10 +1,20 @@
-from properties import bot, active_sessions, users, types
+from properties import bot, active_sessions, users, InlineKeyboardButton, InlineKeyboardMarkup
+from dataclasses import dataclass
+import typing
 
-rooms = []
+if typing.TYPE_CHECKING:
+    from telebot.types import Message, CallbackQuery
+
+@dataclass
+class Room:
+    owner: str
+    users: list[str]
+
+rooms = {}
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('room'))
-def join_room(call):
+def join_room(call: "CallbackQuery"):
     invited_person = call.message.chat.username
     inviter = call.data.split()[2]
     answer = call.data.split()[1]
@@ -15,55 +25,103 @@ def join_room(call):
         return
 
     bot.edit_message_text('Joined room', call.message.chat.id, call.message.id)
-    if len(rooms) == 0:
-        rooms.append([inviter, invited_person])
+    if not inviter in rooms:
+        rooms[inviter] = Room(inviter, [inviter, invited_person])
         bot.send_message(
             users[inviter], f'@{invited_person} joined room!')
         return
-    for room in rooms:
-        if inviter in room:
-            for pin in room:
+    for owner, room in rooms.items():
+        if inviter == owner:
+            for pin in room.users:
                 bot.send_message(users[pin], f'@{invited_person} joined room!')
-                return
-            room.append(invited_person)
+            room.users.append(invited_person)
 
-    rooms.append([inviter, invited_person])
     bot.send_message(
         users[inviter], f'@{invited_person} joined room!')
 
 
+@bot.message_handler(commands=["add"])
+def add_to_room(message: "Message"):
+    owner = message.from_user.username
+    invited_persons = list(map(lambda x: x.lstrip("@"), message.text.split()[1:]))
+    if owner not in rooms:
+        bot.send_message(message.chat.id, "You are not own any room")
+        return
+    not_found_users = []
+    markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text=f'Yes', callback_data=f'room yes {message.from_user.username}'),
+                                              InlineKeyboardButton(text=f'No', callback_data=f'room no {message.from_user.username}'))
+    in_your_session = []
+    for ip in invited_persons:
+        if ip in rooms[owner].users:
+            in_your_session.append(ip)
+            continue
+        if ip not in users:
+            not_found_users.append(ip)
+        bot.send_message(users[ip], f"@{owner} invites to the room. Join?", reply_markup=markup)
+
+    if in_your_session:
+        bot.send_message(message.chat.id, "In your session already:\n" + "\n".join("@" + iys for iys in in_your_session))
+
+    if not_found_users:
+        bot.send_message(message.chat.id, "Users not found:\n" + "\n".join("@" + nfu for nfu in not_found_users))
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("leave"))
+def leave_handler(call: "CallbackQuery"):
+    user = call.from_user.username
+    answer = call.data.split()[1]
+    if answer == "no":
+        bot.edit_message_text("Not leaving", call.message.chat.id, call.message.message_id)
+
+    for owner, room in rooms.items():
+        if owner == user:
+            for pid in room.users:
+                bot.send_message(users[pid], f"@{user} disolved the room")
+            rooms.pop(user)
+            return
+        if user in room:
+            room.remove(user)
+            for pid in room:
+                bot.send_message(users[pid], f"@{user} left the room")
+            bot.send_message(users[user], "You left the room")
+
+
 @bot.message_handler(commands=['room'])
-def create_room(message):
+def create_room(message: "Message"):
     sender = message.from_user.username
     invited_users = message.text.split()[1:]
+    invited_users = list(map(lambda x: x.lstrip("@"), invited_users))
+    print(invited_users)
     if len(invited_users) == 0:
-        bot.send_message(
-            message.chat.id, 'No users specified. To use this command type /room and usernames separated by spece. For example /room obeme_dochka yomama etc.')
-    markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton(text=f'Yes',
-                                                                         callback_data=f'room yes {message.from_user.username}'),
-                                              types.InlineKeyboardButton(text=f'No', callback_data=f'room no {message.from_user.username}'))
+        bot.send_message(message.chat.id,\
+            'No users specified. To use this command type /room and usernames separated by space. For example /room obeme_dochka yomama etc.')
+        return
+    markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text=f'Yes', callback_data=f'room yes {message.from_user.username}'),
+                                              InlineKeyboardButton(text=f'No', callback_data=f'room no {message.from_user.username}'))
     not_found_users = []
-    if len(rooms) == 0:
-        for user in invited_users:
-            if user not in users:
-                not_found_users.append(user.lstrip('@'))
-                continue
-            if user == sender:
-                continue
+
+    for owner, room in rooms.items():
+        print("In room check")
+        if sender == owner or sender in room.users:
+            leave_markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text=f'Yes', callback_data=f'leave yes'),
+                                                InlineKeyboardButton(text=f'No', callback_data=f'leave no'))
+            bot.send_message(message.chat.id, "You are currently in the room, leave?", reply_markup=leave_markup)
+            return
+
+    for user in invited_users:
+        print("invite section")
+        if user not in users:
+            not_found_users.append(user.lstrip('@'))
+            print("not found", user)
+            continue
+        if any(map(lambda x: user in x.users, rooms.values())):
+            print(user, "in another room")
+            bot.send_message(
+                users[user], text=f'@{sender} invites you to the room. Leave current room and join his chat?', reply_markup=markup)
+        else:
+            print("send invite")
             bot.send_message(
                 users[user], text=f'@{sender} invites you to the room. Join?', reply_markup=markup)
-    else:
-        for user in invited_users:
-            for room in rooms:
-                if user not in users:
-                    not_found_users.append(user.lstrip('@'))
-                    continue
-                if user in room:
-                    bot.send_message(
-                        users[user], text=f'@{sender} invites to the room. Leave current room and join his chat?', reply_markup=markup)
-                else:
-                    bot.send_message(
-                        users[user], text=f'@{sender} invites you to the room. Join?', reply_markup=markup)
 
     not_found_users = list(map(
         lambda x: '@' + x, filter(lambda x: len(x) != 0, not_found_users)))
@@ -73,8 +131,8 @@ def create_room(message):
             users[sender], text=f'Specified users are not found: \n{nfu}')
 
 
-@bot.message_handler(commands=['tell'])
-def tell_to_user(message):
+@bot.message_handler(commands=['tell', 't'])
+def tell_to_user(message: "Message"):
     player = message.from_user.username
     if player not in active_sessions:
         try:
@@ -96,11 +154,13 @@ def tell_to_user(message):
         return
     if len(message.text.strip()) != 5:
         bot.edit_message_text(
-            f'@{player} tells: {" ".join(message.text.split()[1:])}', users[active_sessions[player][4]], active_sessions[active_sessions[player][4]][5], reply_markup=active_sessions[player][0])
+            f'@{player} tells: {" ".join(message.text.split()[1:])}',\
+                users[active_sessions[player].enemy],\
+                    active_sessions[active_sessions[player].enemy].message_id, reply_markup=active_sessions[player].keyboard)
 
 
 @bot.message_handler(commands=['myroom'])
-def get_roommates(message):
+def get_roommates(message: "Message"):
     for room in rooms:
         if message.from_user.username in room:
             roommates = '\n'.join(
@@ -111,7 +171,7 @@ def get_roommates(message):
 
 
 @bot.message_handler(commands=['leave'])
-def leave_room(message):
+def leave_room(message: "Message"):
     for room in rooms:
         if message.from_user.username in room:
             bot.send_message(message.chat.id, 'Ok.')
@@ -127,11 +187,12 @@ def leave_room(message):
 
 
 @bot.message_handler(content_types=['text'])
-def send_message_to_room(message):
-    for room in rooms:
-        if message.from_user.username in room:
-            for pin in room:
-                if pin == message.from_user.username:
+def send_message_to_room(message: "Message"):
+    writer = message.from_user.username
+    for room in rooms.values():
+        if writer in (room.users):
+            for pin in room.users:
+                if pin == writer:
                     continue
                 bot.send_message(
-                    users[pin], f'@{message.from_user.username}: {message.text}')
+                    users[pin], f'@{writer}: {message.text}')

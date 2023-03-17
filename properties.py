@@ -1,9 +1,9 @@
 import telebot
 import json
 from enum import Enum, auto
-from telebot import types
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-API_KEY = ''
+API_KEY = ""
 bot = telebot.TeleBot(token=API_KEY)
 
 crossIcon = u"\u274C"
@@ -12,7 +12,7 @@ circleIcon = u'\u2B55'
 active_sessions = {}
 
 users = json.load(open('database.json', 'r'))
-
+replay = {}
 
 logic_markup = [' ' for _ in range(9)]
 position = {'0': [0, 0], '1': [0, 1], '2': [0, 2], '3': [1, 0], '4': [
