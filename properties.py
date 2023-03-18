@@ -2,8 +2,9 @@ import telebot
 import json
 from enum import Enum, auto
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
+import os
 
-API_KEY = "2137585543:AAHOzUVRhovLsZPbCMxo7r2g9E9HvCTNU3M"
+API_KEY = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(token=API_KEY)
 
 crossIcon = u"\u274C"
