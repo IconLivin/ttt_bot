@@ -221,7 +221,7 @@ def send_message_to_room(message: "Message"):
                     elif isinstance(caption, Video):
                         bot.send_video(users[pin], caption.file_id)
                     elif isinstance(caption, list):
-                        photos = {p.file_id for p in caption}
+                        photos = [p.file_id for p in caption]
                         if photos:
                             bot.send_photo(users[pin], photos[0])
 
