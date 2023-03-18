@@ -2,7 +2,7 @@ from properties import bot, active_sessions, users, InlineKeyboardButton, Inline
 from dataclasses import dataclass
 import typing
 from typing import List
-from telebot.types import Sticker, Audio, Voice, Document
+from telebot.types import Sticker, Audio, Voice, Document, Photo
 
 if typing.TYPE_CHECKING:
     from telebot.types import Message, CallbackQuery
@@ -206,7 +206,7 @@ def send_message_to_room(message: "Message"):
             for pin in room.users:
                 if pin == writer:
                     continue
-                for caption in [message.sticker, message.audio, message.voice, message.document]:
+                for caption in [message.sticker, message.audio, message.voice, message.document, message.photo]:
                     if not caption:
                         continue
                     if isinstance(caption, Sticker):
@@ -217,6 +217,9 @@ def send_message_to_room(message: "Message"):
                         bot.send_voice(users[pin], caption.file_id)
                     elif isinstance(caption, Document):
                         bot.send_document(users[pin], caption.file_id)
+                    elif isinstance(caption, list):
+                        for f in caption:
+                            bot.send_photo(users[pin], f.file_id)
                     return
 
                 bot.send_message(
