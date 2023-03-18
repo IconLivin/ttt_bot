@@ -2,7 +2,7 @@ from properties import bot, active_sessions, users, InlineKeyboardButton, Inline
 from dataclasses import dataclass
 import typing
 from typing import List
-from telebot.types import Sticker, Audio, Voice, Document
+from telebot.types import Sticker, Audio, Voice, Document, Video
 
 if typing.TYPE_CHECKING:
     from telebot.types import Message, CallbackQuery
@@ -197,8 +197,7 @@ def leave_room(message: "Message"):
 
 
 @bot.message_handler(func=lambda message: True, content_types=['audio', 'photo', 'voice',\
-                                                               'video', 'document', 'text',\
-                                                               'location', 'contact', 'sticker'])
+                                                               'video', 'document', 'text', 'sticker'])
 def send_message_to_room(message: "Message"):
     writer = message.from_user.username
     for room in rooms.values():
@@ -208,7 +207,7 @@ def send_message_to_room(message: "Message"):
                     continue
                 bot.send_message(
                     users[pin], f'@{writer}: {message.text if message.text else ""}', )
-                for caption in [message.sticker, message.audio, message.voice, message.document, message.photo]:
+                for caption in [message.sticker, message.audio, message.voice, message.document, message.photo, message.video]:
                     if not caption:
                         continue
                     if isinstance(caption, Sticker):
@@ -219,8 +218,10 @@ def send_message_to_room(message: "Message"):
                         bot.send_voice(users[pin], caption.file_id)
                     elif isinstance(caption, Document):
                         bot.send_document(users[pin], caption.file_id)
+                    elif isinstance(caption, Video):
+                        bot.send_video(users[pin], caption.file_id)
                     elif isinstance(caption, list):
                         photos = {p.file_id for p in caption}
-                        for photo in photos:
-                            bot.send_photo(users[pin], photo)
-                    return
+                        if photos:
+                            bot.send_photo(users[pin], photos[0])
+
