@@ -220,6 +220,7 @@ def send_message_to_room(message: "Message"):
                     elif isinstance(caption, Document):
                         bot.send_document(users[pin], caption.file_id)
                     elif isinstance(caption, list):
-                        for f in caption:
-                            bot.send_photo(users[pin], f.file_id)
+                        photos = {p.file_id for p in caption}
+                        for photo in photos:
+                            bot.send_photo(users[pin], photo)
                     return
