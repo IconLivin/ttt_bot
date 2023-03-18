@@ -2,7 +2,7 @@ from properties import bot, active_sessions, users, InlineKeyboardButton, Inline
 from dataclasses import dataclass
 import typing
 from typing import List
-from telebot.types import Sticker, Audio, Voice, Document, Photo
+from telebot.types import Sticker, Audio, Voice, Document
 
 if typing.TYPE_CHECKING:
     from telebot.types import Message, CallbackQuery
