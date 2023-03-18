@@ -163,7 +163,7 @@ def tell_to_user(message: "Message"):
 
 @bot.message_handler(commands=['myroom'])
 def get_roommates(message: "Message"):
-    for room in rooms:
+    for _, room in rooms.items():
         if message.from_user.username in room.users:
             roommates = '\n'.join(
                 '@' + mate for mate in room.users if mate != message.from_user.username)
