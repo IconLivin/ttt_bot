@@ -164,9 +164,9 @@ def tell_to_user(message: "Message"):
 @bot.message_handler(commands=['myroom'])
 def get_roommates(message: "Message"):
     for room in rooms:
-        if message.from_user.username in room:
+        if message.from_user.username in room.users:
             roommates = '\n'.join(
-                '@' + mate for mate in room if mate != message.from_user.username)
+                '@' + mate for mate in room.users if mate != message.from_user.username)
             bot.send_message(message.chat.id, f'Your roommates:\n{roommates}')
             return
     bot.send_message(message.chat.id, 'You are not in the room.')
@@ -206,6 +206,8 @@ def send_message_to_room(message: "Message"):
             for pin in room.users:
                 if pin == writer:
                     continue
+                bot.send_message(
+                    users[pin], f'@{writer}: {message.text if message.text else ""}', )
                 for caption in [message.sticker, message.audio, message.voice, message.document, message.photo]:
                     if not caption:
                         continue
@@ -221,6 +223,3 @@ def send_message_to_room(message: "Message"):
                         for f in caption:
                             bot.send_photo(users[pin], f.file_id)
                     return
-
-                bot.send_message(
-                    users[pin], f'@{writer}: {message.text}', )
