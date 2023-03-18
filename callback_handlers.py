@@ -3,6 +3,7 @@ from properties import bot, active_sessions, crossIcon, circleIcon, Turn, \
 from dataclasses import dataclass
 from random import shuffle
 from copy import deepcopy
+from typing import List
 
 import typing
 
@@ -12,7 +13,7 @@ if typing.TYPE_CHECKING:
 @dataclass
 class Player:
     keyboard: InlineKeyboardMarkup
-    logic_keyboard: list[str]
+    logic_keyboard: List[str]
     turn: Turn
     icon: str
     enemy: str
@@ -144,7 +145,7 @@ def replay_match(call: "CallbackQuery"):
         return
     _, answer, enemy = call.data.split()
     if answer == "no":
-        bot.edit_message_text(f'@{enemy} refused to play with you.', users[enemy], replay[enemy].message_id)
+        bot.edit_message_text(f'@{player} refused to play with you.', users[enemy], replay[enemy].message_id)
         bot.edit_message_text(f"You declined to replay a match", users[player], replay[player].message_id)
         replay.pop(player, None)
         replay.pop(enemy, None)

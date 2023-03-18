@@ -8,8 +8,8 @@ if typing.TYPE_CHECKING:
 def abort_session(message: "Message"):
     user = message.from_user.username
     if message.from_user.username in active_sessions:
-        bot.edit_message_text("Your opponent ran away!", users[active_sessions[user].enemy
-                                                               ], active_sessions[active_sessions[user].enemy].message_id)
+        bot.edit_message_text("Your opponent ran away!", users[active_sessions[user].enemy],\
+                            active_sessions[active_sessions[user].enemy].message_id)
         bot.send_message(message.chat.id, "Pussy")
         active_sessions.pop(active_sessions[user].enemy)
         active_sessions.pop(user)
@@ -59,7 +59,7 @@ def send_players(message: "Message"):
 @bot.message_handler(commands=['start', 'help'])
 def start(message: "Message"):
     help_message = f"""Hi, this is my test bot.
-To play with friend, please write /playwith #user_id#, for example /playwith @{message.from_user.username} or /playwith {message.from_user.username}. 
+To play with friend, please write /playwith #user_id#, for example /playwith @{message.from_user.username} or /playwith {message.from_user.username}.
 To get list of available players use /players.
 You can abort current game by command /abort.
 You can messaging during the game by /tell %your message% or by /tell @username while chilling.

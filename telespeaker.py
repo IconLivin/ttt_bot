@@ -1,6 +1,8 @@
 from properties import bot, active_sessions, users, InlineKeyboardButton, InlineKeyboardMarkup
 from dataclasses import dataclass
 import typing
+from typing import List
+from telebot.types import Sticker, Audio, Voice, Document
 
 if typing.TYPE_CHECKING:
     from telebot.types import Message, CallbackQuery
@@ -8,7 +10,7 @@ if typing.TYPE_CHECKING:
 @dataclass
 class Room:
     owner: str
-    users: list[str]
+    users: List[str]
 
 rooms = {}
 
@@ -172,13 +174,21 @@ def get_roommates(message: "Message"):
 
 @bot.message_handler(commands=['leave'])
 def leave_room(message: "Message"):
-    for room in rooms:
-        if message.from_user.username in room:
+    user = message.from_user.username
+    silent = True if len(message.text.split()) == 2 else False
+    for owner, room in rooms.items():
+        if owner == user:
+            for pid in room.users:
+                bot.send_message(users[pid], f"@{user} disolved the room")
+            rooms.pop(user)
+            return
+        if message.from_user.username in room.users:
             bot.send_message(message.chat.id, 'Ok.')
-            room.remove(message.from_user.username)
-            for pin in room:
-                bot.send_message(
-                    users[pin], f'@{message.from_user.username} left room.')
+            room.users.remove(message.from_user.username)
+            if not silent:
+                for pin in room:
+                    bot.send_message(
+                        users[pin], f'@{message.from_user.username} left room.')
             if len(room) == 1:
                 rooms.remove(room)
             print(rooms)
@@ -186,7 +196,9 @@ def leave_room(message: "Message"):
     bot.send_message(message.chat.id, 'You are not in room.')
 
 
-@bot.message_handler(content_types=['text'])
+@bot.message_handler(func=lambda message: True, content_types=['audio', 'photo', 'voice',\
+                                                               'video', 'document', 'text',\
+                                                               'location', 'contact', 'sticker'])
 def send_message_to_room(message: "Message"):
     writer = message.from_user.username
     for room in rooms.values():
@@ -194,5 +206,18 @@ def send_message_to_room(message: "Message"):
             for pin in room.users:
                 if pin == writer:
                     continue
+                for caption in [message.sticker, message.audio, message.voice, message.document]:
+                    if not caption:
+                        continue
+                    if isinstance(caption, Sticker):
+                        bot.send_sticker(users[pin], caption.file_id)
+                    elif isinstance(caption, Audio):
+                        bot.send_audio(users[pin], caption.file_id)
+                    elif isinstance(caption, Voice):
+                        bot.send_voice(users[pin], caption.file_id)
+                    elif isinstance(caption, Document):
+                        bot.send_document(users[pin], caption.file_id)
+                    return
+
                 bot.send_message(
-                    users[pin], f'@{writer}: {message.text}')
+                    users[pin], f'@{writer}: {message.text}', )

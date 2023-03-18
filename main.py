@@ -6,7 +6,7 @@ from telespeaker import *
 while True:
     try:
         bot.polling()
-    except (exceptions.ReadTimeout, exceptions.ConnectionError) as e:
-        print(e)
     except KeyboardInterrupt:
         exit()
+    except (exceptions.ReadTimeout, exceptions.ConnectionError) as e:
+        print(e)
