@@ -1,11 +1,12 @@
-from properties import bot, active_sessions, users, InlineKeyboardButton, InlineKeyboardMarkup
+from properties import (bot, active_sessions, users, InlineKeyboardButton, InlineKeyboardMarkup, check_in_base)
 from dataclasses import dataclass
-import typing
 from typing import List
 from telebot.types import Sticker, Audio, Voice, Document, Video
 
+import typing
 if typing.TYPE_CHECKING:
-    from telebot.types import Message, CallbackQuery
+    from telebot.types import CallbackQuery, Message
+
 
 @dataclass
 class Room:
@@ -16,6 +17,7 @@ rooms = {}
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('room'))
+@check_in_base
 def join_room(call: "CallbackQuery"):
     invited_person = call.message.chat.username
     inviter = call.data.split()[2]
@@ -43,6 +45,7 @@ def join_room(call: "CallbackQuery"):
 
 
 @bot.message_handler(commands=["add"])
+@check_in_base
 def add_to_room(message: "Message"):
     owner = message.from_user.username
     invited_persons = list(map(lambda x: x.lstrip("@"), message.text.split()[1:]))
@@ -69,6 +72,7 @@ def add_to_room(message: "Message"):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("leave"))
+@check_in_base
 def leave_handler(call: "CallbackQuery"):
     user = call.from_user.username
     answer = call.data.split()[1]
@@ -89,6 +93,7 @@ def leave_handler(call: "CallbackQuery"):
 
 
 @bot.message_handler(commands=['room'])
+@check_in_base
 def create_room(message: "Message"):
     sender = message.from_user.username
     invited_users = message.text.split()[1:]
@@ -134,6 +139,7 @@ def create_room(message: "Message"):
 
 
 @bot.message_handler(commands=['tell', 't'])
+@check_in_base
 def tell_to_user(message: "Message"):
     player = message.from_user.username
     if player not in active_sessions:
@@ -162,6 +168,7 @@ def tell_to_user(message: "Message"):
 
 
 @bot.message_handler(commands=['myroom'])
+@check_in_base
 def get_roommates(message: "Message"):
     for _, room in rooms.items():
         if message.from_user.username in room.users:
@@ -173,6 +180,7 @@ def get_roommates(message: "Message"):
 
 
 @bot.message_handler(commands=['leave'])
+@check_in_base
 def leave_room(message: "Message"):
     user = message.from_user.username
     silent = True if len(message.text.split()) == 2 else False
@@ -198,6 +206,7 @@ def leave_room(message: "Message"):
 
 @bot.message_handler(func=lambda message: True, content_types=['audio', 'photo', 'voice',\
                                                                'video', 'document', 'text', 'sticker'])
+@check_in_base
 def send_message_to_room(message: "Message"):
     writer = message.from_user.username
     for room in rooms.values():

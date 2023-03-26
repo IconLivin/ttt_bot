@@ -1,11 +1,10 @@
-from properties import bot, active_sessions, crossIcon, circleIcon, Turn, \
-    users, logic_markup, position, InlineKeyboardMarkup, InlineKeyboardButton, replay
+import typing
+from properties import (bot, active_sessions, crossIcon, circleIcon, Turn, \
+    users, logic_markup, position, InlineKeyboardMarkup, InlineKeyboardButton, replay, check_in_base)
 from dataclasses import dataclass
 from random import shuffle
 from copy import deepcopy
 from typing import List
-
-import typing
 
 if typing.TYPE_CHECKING:
     from telebot.types import CallbackQuery
@@ -39,7 +38,7 @@ def is_win(markup):
     return 'draw'
 
 
-def makeKeyboard():
+def make_keyboard():
     markup = InlineKeyboardMarkup()
 
     markup.add(InlineKeyboardButton(text=f' ', callback_data=f'0'),
@@ -55,18 +54,20 @@ def makeKeyboard():
 
 
 @bot.callback_query_handler(func=lambda call: call.data in [str(i) for i in range(9)])
+@check_in_base
 def command_click_inline(call: "CallbackQuery"):
-    user = call.message.chat.username
+    user = call.message.chat.id
     if user not in active_sessions:
         bot.send_message(
-            call.message.chat.id, text='No active session is found, please use /playwith to start new game.')
+            user, text='No active session is found, please use /playwith to start new game.')
         return
     enemy = active_sessions[user].enemy
     if active_sessions[user].turn == Turn.not_your:
+        bot.edit_message_text("It's not your turn!", user, call.message.id, reply_markup=active_sessions[user].keyboard)
         return
     if active_sessions[user].logic_keyboard[int(call.data)] != ' ':
         bot.edit_message_text(
-            'Current position is occupied!', call.message.chat.id, call.message.id, reply_markup=active_sessions[user].keyboard)
+            'Current position is occupied!', user, call.message.id, reply_markup=active_sessions[user].keyboard)
         return
 
     figure = active_sessions[user].icon
@@ -82,7 +83,7 @@ def command_click_inline(call: "CallbackQuery"):
         replay[user] = Replay(enemy, call.message.message_id)
         replay[enemy] = Replay(user, active_sessions[enemy].message_id)
         text = 'You won! Repeat?' if cond == 'win' else "Draw :( Repeat?"
-        enemy_text = f'@{user} won... Repeat?' if cond == 'win' else 'Draw :( Repeat?'
+        enemy_text = f'@{call.message.from_user.username} won... Repeat?' if cond == 'win' else 'Draw :( Repeat?'
         for i in range(3):
             for j in range(3):
                 active_sessions[user].keyboard.keyboard[i][j].callback_data = 'end'
@@ -93,67 +94,80 @@ def command_click_inline(call: "CallbackQuery"):
             InlineKeyboardButton(text=f'Yes', callback_data=f'replay yes {user}'),\
             InlineKeyboardButton(text=f'No', callback_data=f'replay no {user}'))
         bot.edit_message_text(
-            text, call.message.chat.id, call.message.id, reply_markup=user_keyboard)
+            text, user, call.message.id, reply_markup=user_keyboard)
         bot.edit_message_text(
-            enemy_text, users[enemy],\
+            enemy_text, enemy,\
             active_sessions[enemy].message_id, reply_markup=enemy_keyboard)
         active_sessions.pop(enemy, None)
         active_sessions.pop(user, None)
         return
 
     bot.edit_message_text('Your opponent turn',
-                          call.message.chat.id, call.message.id, reply_markup=active_sessions[user].keyboard)
+                          user, call.message.id, reply_markup=active_sessions[user].keyboard)
 
     bot.edit_message_text(
-        "Your turn", users[enemy],\
+        "Your turn", enemy,\
         active_sessions[enemy].message_id, reply_markup=active_sessions[user].keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('apply'))
+@check_in_base
 def apply_game(call: "CallbackQuery"):
-    enemy = call.data.split()[2].lstrip('@')
+    enemy_username = call.data.split()[2]
+    enemy_id = users.get(enemy_username, None)
+    if not enemy_id:
+        bot.edit_message_text("No player found!", call.message.chat.id, call.message.id)
+        return
     reply_ans = call.data.split()[1]
+    user_id = call.message.chat.id
     if reply_ans == 'no':
-        bot.send_message(
-            users[enemy], text=f'@{call.message.chat.username} refused to play with you.')
+        bot.send_message(enemy_id, text=f'@{call.message.chat.username} refused to play with you.')
+        bot.edit_message_text(f"You refused to play.", user_id, call.message.id)
         return
-    user = call.message.chat.username
-    if enemy in active_sessions:
+    if enemy_id in active_sessions:
         bot.send_message(
-            call.message.chat.id, text=f'Player @{enemy} is playing at the moment.')
+            call.message.chat.id, text=f'Player @{enemy_username} is playing at the moment.')
         return
-    keyboard = makeKeyboard()
+    keyboard = make_keyboard()
     logic_keyboard = logic_markup.copy()
-    message = bot.send_message(users[enemy], "Waiting your opponent")
-    active_sessions[enemy] = Player(keyboard, logic_keyboard, Turn.your, crossIcon, user, message.id)
-    active_sessions[user] = Player(keyboard, logic_keyboard, Turn.not_your, circleIcon, enemy, call.message.id)
-    players = [(active_sessions[user], user), (active_sessions[enemy], enemy)]
+    message = bot.send_message(enemy_id, "Waiting your opponent")
+    active_sessions[enemy_id] = Player(keyboard, logic_keyboard, Turn.your, crossIcon, user_id, message.id)
+    active_sessions[user_id] = Player(keyboard, logic_keyboard, Turn.not_your, circleIcon, enemy_id, call.message.id)
+    players = [(active_sessions[user_id], user_id), (active_sessions[enemy_id], enemy_id)]
     shuffle(players)
     user_obj, enemy_obj = players
+
+    active_sessions[user_obj[1]].icon = circleIcon
+    active_sessions[enemy_obj[1]].icon = crossIcon
+
     active_sessions[user_obj[1]].turn = Turn.not_your
     active_sessions[enemy_obj[1]].turn = Turn.your
-    bot.edit_message_text('Your turn', users[enemy_obj[1]], enemy_obj[0].message_id,
+
+    bot.edit_message_text('Your turn', enemy_obj[1], enemy_obj[0].message_id,
                      reply_markup=active_sessions[enemy_obj[1]].keyboard)
     bot.edit_message_text('Your opponent turn',
-                          users[user_obj[1]], user_obj[0].message_id, reply_markup=active_sessions[user_obj[1]].keyboard)
+                          user_obj[1], user_obj[0].message_id, reply_markup=active_sessions[user_obj[1]].keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("replay"))
+@check_in_base
 def replay_match(call: "CallbackQuery"):
-    player = call.from_user.username
+    player = call.from_user.id
     if not player in replay:
         return
     _, answer, enemy = call.data.split()
+    enemy = int(enemy)
     if answer == "no":
-        bot.edit_message_text(f'@{player} refused to play with you.', users[enemy], replay[enemy].message_id)
-        bot.edit_message_text(f"You declined to replay a match", users[player], replay[player].message_id)
+        bot.edit_message_text(f'@{call.from_user.username} refused to play with you.', enemy, replay[enemy].message_id)
+        bot.edit_message_text(f"You declined to replay a match", player, replay[player].message_id)
         replay.pop(player, None)
         replay.pop(enemy, None)
         return
     bot.edit_message_text("Waiting for opponent", call.message.chat.id, call.message.message_id)
-    markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='Yes', callback_data=f'apply yes {player}'),
-                                              InlineKeyboardButton(text='No', callback_data=f'apply no {player}'))
-    bot.edit_message_text("Your opponent waiting to play again! Do you?", users[enemy],\
+    markup = InlineKeyboardMarkup().add(InlineKeyboardButton(text='Yes', callback_data=f'apply yes {call.from_user.username}'),
+                                        InlineKeyboardButton(text='No', callback_data=f'apply no {call.from_user.username}'))
+
+    bot.edit_message_text("Your opponent waiting to play again! Do you?", enemy,\
                         replay[enemy].message_id, reply_markup=markup)
     replay.pop(player, None)
     replay.pop(enemy, None)

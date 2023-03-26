@@ -1,10 +1,14 @@
-from properties import bot, active_sessions, users, InlineKeyboardButton, InlineKeyboardMarkup, json
+from properties import (bot, active_sessions, users,\
+    InlineKeyboardButton, InlineKeyboardMarkup, json, check_in_base)
+
 import typing
 
 if typing.TYPE_CHECKING:
     from telebot.types import Message
 
+
 @bot.message_handler(commands=['abort'])
+@check_in_base
 def abort_session(message: "Message"):
     user = message.from_user.username
     if message.from_user.username in active_sessions:
@@ -16,6 +20,7 @@ def abort_session(message: "Message"):
 
 
 @bot.message_handler(commands=['playwith'])
+@check_in_base
 def invite_player(message: "Message"):
     try:
         player = f'@{message.text.split()[1]}' if not message.text.split()[
@@ -28,7 +33,7 @@ def invite_player(message: "Message"):
         bot.send_message(
             message.chat.id, text=f"""Player {player} is not currently uses this bot. Please invite him there: http://t.me/ticitacitoe_bot""")
         return
-    if users[player[1:]] == message.chat.id and player[1:] != "debug":
+    if users[player[1:]] == message.chat.id:
         bot.send_message(message.chat.id, 'You cannot play with yourself.')
         return
     if active_sessions.get(users[player[1:]], None) != None:
@@ -47,6 +52,7 @@ def invite_player(message: "Message"):
 
 
 @bot.message_handler(commands=['players'])
+@check_in_base
 def send_players(message: "Message"):
     players = 'Available players:\n'
     for key in users.keys():
@@ -57,6 +63,7 @@ def send_players(message: "Message"):
 
 
 @bot.message_handler(commands=['start', 'help'])
+@check_in_base
 def start(message: "Message"):
     help_message = f"""Hi, this is my test bot.
 To play with friend, please write /playwith #user_id#, for example /playwith @{message.from_user.username} or /playwith {message.from_user.username}.
@@ -66,10 +73,5 @@ You can messaging during the game by /tell %your message% or by /tell @username 
 Invite your friends to the private room by /room command: /room player1 player2 ... playerN. You can chat with your friends without and command in room.
 To get people in your current room please use /myroom
 To leave room please use /leave"""
-    if message.from_user.username not in users:
-        users[message.from_user.username] = message.chat.id
-        with open('database.json', 'w') as db:
-            json.dump(users, db, indent=4)
-
     bot.send_message(
         message.chat.id, help_message)
